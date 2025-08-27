@@ -87,7 +87,7 @@ st.markdown("""
 API_CONFIG = {
     'endpoint': 'https://api.llm.ai.vn/v1',
     'model': 'gemini:gemini-2.5-flash',
-    'api_key': 'YOUR_API_KEY_HERE'  # Thay thế bằng API key thực
+    'api_key': 'sk-j4DkzI7htsVqEZqC272d3b58B0Fb49A183573dD2Fc04F71d'  # Thay thế bằng API key thực
 }
 
 class IDPhotoGenerator:
