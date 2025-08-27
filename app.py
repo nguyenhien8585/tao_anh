@@ -55,6 +55,8 @@ st.markdown("""
         border-radius: 10px;
         padding: 1rem;
         margin: 1rem 0;
+        color: #2e7d32;
+        font-weight: 600;
     }
     
     .error-box {
@@ -63,6 +65,8 @@ st.markdown("""
         border-radius: 10px;
         padding: 1rem;
         margin: 1rem 0;
+        color: #c62828;
+        font-weight: 600;
     }
     
     .info-box {
@@ -71,6 +75,7 @@ st.markdown("""
         border-radius: 10px;
         padding: 1rem;
         margin: 1rem 0;
+        color: #1976d2;
     }
     
     .metric-card {
@@ -79,6 +84,7 @@ st.markdown("""
         padding: 1rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         text-align: center;
+        border: 2px solid #667eea;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -121,6 +127,11 @@ class IDPhotoGenerator:
             # Kiểm tra có phải ảnh hợp lệ không
             image = Image.open(uploaded_file)
             image.verify()
+            
+            # Reset file pointer
+            uploaded_file.seek(0)
+            image = Image.open(uploaded_file)
+            
             return {'valid': True, 'image': image}
         except Exception as e:
             return {'valid': False, 'error': f'File ảnh không hợp lệ: {str(e)}'}
@@ -153,8 +164,7 @@ class IDPhotoGenerator:
     def call_ai_api(self, prompt: str, image_data: str) -> Dict[str, Any]:
         """Gọi AI API (demo version)"""
         try:
-            # DEMO: Trong thực tế cần gọi API thật
-            # Ở đây tạo ảnh demo bằng PIL
+            # DEMO: Tạo ảnh demo bằng PIL
             demo_image = self.create_demo_photo(prompt)
             return {
                 'success': True,
@@ -192,12 +202,17 @@ class IDPhotoGenerator:
         draw.ellipse([center_x - 35, center_y - 30, center_x - 15, center_y - 10], fill='#666666')
         draw.ellipse([center_x + 15, center_y - 30, center_x + 35, center_y - 10], fill='#666666')
         
-        # Mũi
+        # Mũi - sử dụng lines thay vì arc
         draw.line([center_x, center_y - 5, center_x + 5, center_y + 10], fill='#999999', width=2)
+        draw.line([center_x + 5, center_y + 10, center_x - 5, center_y + 15], fill='#999999', width=2)
         
-        # Miệng (cười)
-        draw.arc([center_x - 20, center_y + 10, center_x + 20, center_y + 50], 
-                start=0, end=180, fill='#999999', width=3)
+        # Miệng - sử dụng arc
+        try:
+            draw.arc([center_x - 20, center_y + 10, center_x + 20, center_y + 50], 
+                    start=0, end=180, fill='#999999', width=3)
+        except:
+            # Fallback nếu arc không hoạt động
+            draw.line([center_x - 15, center_y + 30, center_x + 15, center_y + 30], fill='#999999', width=3)
         
         # Trang phục
         if 'male' in prompt.lower():
@@ -214,31 +229,46 @@ class IDPhotoGenerator:
         
         # Text thông tin
         try:
-            # Sử dụng font mặc định nếu không tìm thấy font tùy chỉnh
-            font_large = ImageFont.load_default()
-            font_small = ImageFont.load_default()
+            # Sử dụng font default
+            font = ImageFont.load_default()
         except:
-            font_large = None
-            font_small = None
+            font = None
         
         # Thông tin ảnh thẻ
         gender_text = "Nam" if "male" in prompt.lower() else "Nữ"
         
-        draw.text((center_x, height - 80), f"DEMO - Ảnh thẻ {gender_text}", 
-                 fill='#666666', font=font_large, anchor="mm")
-        draw.text((center_x, height - 60), "AI Generated", 
-                 fill='#666666', font=font_small, anchor="mm")
-        draw.text((center_x, height - 20), datetime.datetime.now().strftime("%d/%m/%Y %H:%M"), 
-                 fill='#CCCCCC', font=font_small, anchor="mm")
+        try:
+            # Vẽ text với font
+            if font:
+                draw.text((center_x, height - 80), f"DEMO - Ảnh thẻ {gender_text}", 
+                         fill='#666666', font=font, anchor="mm")
+                draw.text((center_x, height - 60), "AI Generated", 
+                         fill='#666666', font=font, anchor="mm")
+                draw.text((center_x, height - 20), datetime.datetime.now().strftime("%d/%m/%Y %H:%M"), 
+                         fill='#CCCCCC', font=font, anchor="mm")
+            else:
+                # Fallback text drawing
+                text1 = f"DEMO - Ảnh thẻ {gender_text}"
+                text2 = "AI Generated"
+                text3 = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                
+                # Estimate text width (rough)
+                text1_width = len(text1) * 8
+                text2_width = len(text2) * 8  
+                text3_width = len(text3) * 6
+                
+                draw.text((center_x - text1_width//2, height - 80), text1, fill='#666666')
+                draw.text((center_x - text2_width//2, height - 60), text2, fill='#666666')
+                draw.text((center_x - text3_width//2, height - 20), text3, fill='#CCCCCC')
+                
+        except Exception as text_error:
+            # Final fallback
+            pass
         
         return image
 
 def main():
     """Hàm main của app"""
-    
-    # Header
-    st.title("🎯 Tạo Ảnh Thẻ AI")
-    st.markdown("### Tạo ảnh thẻ chuyên nghiệp với công nghệ Gemini 2.5 Flash")
     
     # Khởi tạo session state
     if 'photo_generator' not in st.session_state:
@@ -249,6 +279,14 @@ def main():
         
     if 'options' not in st.session_state:
         st.session_state.options = {}
+    
+    # Header
+    st.title("🎯 Tạo Ảnh Thẻ AI")
+    st.markdown("### Tạo ảnh thẻ chuyên nghiệp với công nghệ Gemini 2.5 Flash")
+    
+    # Check API status
+    api_status = "🟡 Demo Mode" if API_CONFIG['api_key'] == 'YOUR_API_KEY_HERE' else "🟢 API Ready"
+    st.info(f"**Trạng thái**: {api_status} | App đang chạy ở chế độ demo với ảnh mẫu")
     
     # Layout chính
     col1, col2 = st.columns([1, 1])
@@ -274,21 +312,27 @@ def main():
                 uploaded_file.seek(0)
                 image = Image.open(uploaded_file)
                 
-                st.success("✅ Ảnh hợp lệ!")
+                st.markdown('<div class="success-box">✅ Ảnh hợp lệ!</div>', unsafe_allow_html=True)
                 st.image(image, caption=f"📁 {uploaded_file.name} ({uploaded_file.size/1024:.1f} KB)", 
                         use_column_width=True)
                 
                 # File info
                 col_info1, col_info2, col_info3 = st.columns(3)
                 with col_info1:
+                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                     st.metric("📏 Kích thước", f"{image.size[0]}x{image.size[1]}")
+                    st.markdown('</div>', unsafe_allow_html=True)
                 with col_info2:
+                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                     st.metric("📦 Dung lượng", f"{uploaded_file.size/1024:.1f} KB")
+                    st.markdown('</div>', unsafe_allow_html=True)
                 with col_info3:
+                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                     st.metric("🖼️ Định dạng", image.format or "Unknown")
+                    st.markdown('</div>', unsafe_allow_html=True)
                     
             else:
-                st.error(f"❌ {validation['error']}")
+                st.markdown(f'<div class="error-box">❌ {validation["error"]}</div>', unsafe_allow_html=True)
                 uploaded_file = None
     
     with col2:
@@ -363,9 +407,9 @@ def main():
             
             if result['success']:
                 st.session_state.generated_image = result['image']
-                st.success(f"✅ {result['message']}")
+                st.markdown(f'<div class="success-box">✅ {result["message"]}</div>', unsafe_allow_html=True)
             else:
-                st.error(f"❌ {result['error']}")
+                st.markdown(f'<div class="error-box">❌ {result["error"]}</div>', unsafe_allow_html=True)
     
     # Hiển thị kết quả
     if st.session_state.generated_image:
@@ -382,11 +426,13 @@ def main():
         with result_col2:
             # Thông tin ảnh
             st.markdown("#### 📊 Thông tin")
-            st.info(f"""
-            🎯 **Kích thước**: {st.session_state.options.get('photo_size', '4x6')}
-            👤 **Giới tính**: {gender}
+            st.markdown('<div class="info-box">', unsafe_allow_html=True)
+            st.markdown(f"""
+            🎯 **Kích thước**: {st.session_state.options.get('photo_size', '4x6')}  
+            👤 **Giới tính**: {gender}  
             ⏰ **Thời gian tạo**: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
             """)
+            st.markdown('</div>', unsafe_allow_html=True)
             
             # Nút actions
             st.markdown("#### 🎬 Hành động")
@@ -398,17 +444,34 @@ def main():
             
             # Download button
             st.download_button(
-                label="📥 Tải xuống",
+                label="📥 Tải xuống JPG",
                 data=img_bytes,
                 file_name=f"id_photo_{gender_key}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg",
                 mime="image/jpeg",
                 type="primary"
             )
             
+            # PNG download
+            png_buffer = io.BytesIO()
+            st.session_state.generated_image.save(png_buffer, format='PNG')
+            png_bytes = png_buffer.getvalue()
+            
+            st.download_button(
+                label="📥 Tải xuống PNG",
+                data=png_bytes,
+                file_name=f"id_photo_{gender_key}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                mime="image/png"
+            )
+            
             # Reset button
             if st.button("🔄 Tạo lại", type="secondary"):
                 st.session_state.generated_image = None
-                st.rerun()
+                # Sử dụng st.rerun() thay vì st.experimental_rerun()
+                try:
+                    st.rerun()
+                except:
+                    # Fallback for older Streamlit versions
+                    st.experimental_rerun()
     
     # Sidebar với thông tin
     with st.sidebar:
@@ -437,9 +500,15 @@ def main():
         Để sử dụng AI thật, cần cấu hình API key trong `API_CONFIG`.
         """)
         
-        # API Status
-        api_status = "🟡 Demo Mode" if API_CONFIG['api_key'] == 'YOUR_API_KEY_HERE' else "🟢 API Ready"
-        st.markdown(f"**Trạng thái API**: {api_status}")
+        # Version info
+        st.markdown("---")
+        st.markdown("**🔧 Version**: 1.0.0")
+        st.markdown("**📅 Updated**: " + datetime.datetime.now().strftime('%d/%m/%Y'))
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        st.error(f"❌ Lỗi ứng dụng: {str(e)}")
+        st.info("🔄 Vui lòng refresh trang và thử lại")
+        st.code(f"Chi tiết lỗi: {str(e)}", language="text")
