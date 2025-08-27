@@ -408,7 +408,7 @@ def main():
             # Reset button
             if st.button("🔄 Tạo lại", type="secondary"):
                 st.session_state.generated_image = None
-                st.experimental_rerun()
+                st.rerun()
     
     # Sidebar với thông tin
     with st.sidebar:
