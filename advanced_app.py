@@ -1123,7 +1123,7 @@ def settings_interface():
                 cursor.execute("DELETE FROM usage_stats") 
                 st.session_state.photo_generator.db.commit()
                 st.success("✅ Đã xóa toàn bộ lịch sử!")
-                st.experimental_rerun()
+                st.rerun()
     
     with data_col2:
         # Database backup
